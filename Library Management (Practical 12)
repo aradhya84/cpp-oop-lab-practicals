@@ -1,0 +1,331 @@
+
+#include <iostream>
+#include <vector>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <stdexcept>
+using namespace std;
+
+// Base class
+class LibraryItem {
+protected:
+    int id;
+    string title;
+
+public:
+    LibraryItem(int i, string t) {
+        id = i;
+        title = t;
+    }
+
+    virtual void display() const = 0;
+
+    virtual ~LibraryItem() {}
+};
+
+// Derived class
+class Book : public LibraryItem {
+private:
+    string author;
+    bool available;
+
+public:
+    Book(int i, string t, string a, bool status = true)
+        : LibraryItem(i, t) {
+        author = a;
+        available = status;
+    }
+
+    // Getter functions
+    int getID() const {
+        return id;
+    }
+
+    string getTitle() const {
+        return title;
+    }
+
+    string getAuthor() const {
+        return author;
+    }
+
+    bool isAvailable() const {
+        return available;
+    }
+
+    void setAvailable(bool status) {
+        available = status;
+    }
+
+    // Polymorphism
+    void display() const override {
+        cout << id << "\t"
+             << title << "\t"
+             << author << "\t"
+             << (available ? "Available" : "Issued")
+             << endl;
+    }
+};
+
+// Library management class
+class Library {
+private:
+    vector<Book> books;
+
+    Book* findBook(int bookID) {
+        for (auto &book : books) {
+            if (book.getID() == bookID) {
+                return &book;
+            }
+        }
+        return nullptr;
+    }
+
+public:
+    // Add book
+    void addBook(int id, string title, string author) {
+        if (id <= 0 || title.empty() || author.empty()) {
+            throw invalid_argument("Invalid book details.");
+        }
+
+        if (findBook(id) != nullptr) {
+            throw runtime_error("Book ID already exists.");
+        }
+
+        books.push_back(Book(id, title, author));
+        cout << "Book added successfully.\n";
+    }
+
+    // Display all books
+    void displayBooks() const {
+        if (books.empty()) {
+            cout << "No books available.\n";
+            return;
+        }
+
+        cout << "\nID\tTitle\tAuthor\tStatus\n";
+
+        for (const auto &book : books) {
+            book.display();
+        }
+    }
+
+    // Search book
+    void searchBook(int id) {
+        Book* book = findBook(id);
+
+        if (book == nullptr) {
+            throw runtime_error("Book not found.");
+        }
+
+        cout << "\nBook Details:\n";
+        book->display();
+    }
+
+    // Issue book
+    void issueBook(int id) {
+        Book* book = findBook(id);
+
+        if (book == nullptr) {
+            throw runtime_error("Book not found.");
+        }
+
+        if (!book->isAvailable()) {
+            throw runtime_error("Book is already issued.");
+        }
+
+        book->setAvailable(false);
+        cout << "Book issued successfully.\n";
+    }
+
+    // Return book
+    void returnBook(int id) {
+        Book* book = findBook(id);
+
+        if (book == nullptr) {
+            throw runtime_error("Book not found.");
+        }
+
+        if (book->isAvailable()) {
+            throw runtime_error("Book was not issued.");
+        }
+
+        book->setAvailable(true);
+        cout << "Book returned successfully.\n";
+    }
+
+    // Save records to CSV
+    void saveToFile() const {
+        ofstream file("books.csv");
+
+        if (!file.is_open()) {
+            throw runtime_error("Unable to open CSV file for saving.");
+        }
+
+        file << "ID,Title,Author,Available\n";
+
+        for (const auto &book : books) {
+            file << book.getID() << ","
+                 << book.getTitle() << ","
+                 << book.getAuthor() << ","
+                 << book.isAvailable() << "\n";
+        }
+
+        if (!file) {
+            throw runtime_error("Error while saving records.");
+        }
+
+        file.close();
+    }
+
+    // Load records from CSV
+    void loadFromFile() {
+        ifstream file("books.csv");
+
+        if (!file.is_open()) {
+            return;
+        }
+
+        string line;
+        getline(file, line); // Skip header
+
+        while (getline(file, line)) {
+            stringstream ss(line);
+
+            string idText, title, author, statusText;
+
+            if (!getline(ss, idText, ',') ||
+                !getline(ss, title, ',') ||
+                !getline(ss, author, ',') ||
+                !getline(ss, statusText)) {
+                continue;
+            }
+
+            try {
+                int bookID = stoi(idText);
+                bool status = (stoi(statusText) != 0);
+
+                if (bookID > 0 && !title.empty() &&
+                    !author.empty() && findBook(bookID) == nullptr) {
+
+                    books.push_back(
+                        Book(bookID, title, author, status)
+                    );
+                }
+            }
+            catch (const exception&) {
+                cout << "Invalid record skipped.\n";
+            }
+        }
+
+        file.close();
+    }
+};
+
+// Safe integer input
+int readInteger(string message) {
+    string input;
+
+    cout << message;
+    getline(cin, input);
+
+    try {
+        size_t position;
+        int value = stoi(input, &position);
+
+        if (position != input.length()) {
+            throw invalid_argument("Invalid input");
+        }
+
+        return value;
+    }
+    catch (const exception&) {
+        throw invalid_argument("Please enter a valid number.");
+    }
+}
+
+// Main function
+int main() {
+    cout << "Name: Aradhya D Nair \n";
+
+    Library library;
+
+    try {
+        library.loadFromFile();
+    }
+    catch (const exception &e) {
+        cout << "Loading error: " << e.what() << endl;
+    }
+
+    int choice = -1;
+
+    do {
+        cout << "\n===== LIBRARY MANAGEMENT SYSTEM =====\n";
+        cout << "1. Add Book\n";
+        cout << "2. Display Books\n";
+        cout << "3. Search Book\n";
+        cout << "4. Issue Book\n";
+        cout << "5. Return Book\n";
+        cout << "6. Save Records\n";
+        cout << "0. Exit\n";
+
+        try {
+            choice = readInteger("Enter your choice: ");
+
+            if (choice == 1) {
+                int id = readInteger("Enter Book ID: ");
+
+                string title, author;
+
+                cout << "Enter Book Title: ";
+                getline(cin, title);
+
+                cout << "Enter Author Name: ";
+                getline(cin, author);
+
+                library.addBook(id, title, author);
+            }
+
+            else if (choice == 2) {
+                library.displayBooks();
+            }
+
+            else if (choice == 3) {
+                int id = readInteger("Enter Book ID: ");
+                library.searchBook(id);
+            }
+
+            else if (choice == 4) {
+                int id = readInteger("Enter Book ID: ");
+                library.issueBook(id);
+            }
+
+            else if (choice == 5) {
+                int id = readInteger("Enter Book ID: ");
+                library.returnBook(id);
+            }
+
+            else if (choice == 6) {
+                library.saveToFile();
+                cout << "Records saved successfully.\n";
+            }
+
+            else if (choice == 0) {
+                library.saveToFile();
+                cout << "Records saved. Thank you!\n";
+            }
+
+            else {
+                cout << "Invalid menu choice.\n";
+            }
+        }
+
+        catch (const exception &e) {
+            cout << "Error: " << e.what() << endl;
+        }
+
+    } while (choice != 0);
+
+    return 0;
+}
